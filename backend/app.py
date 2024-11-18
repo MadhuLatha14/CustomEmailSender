@@ -1,28 +1,24 @@
-from flask import Flask, request, jsonify
-from email_service import send_email, schedule_emails
-from db_setup import setup_db
+from flask import Flask, render_template, request, redirect, url_for
+from config import Config
+from email_sender import send_email
+from tasks import schedule_email
+from database import db, EmailStatus
 
 app = Flask(__name__)
+app.config.from_object(Config)
+db.init_app(app)
 
-setup_db()
+@app.route('/')
+def dashboard():
+    email_statuses = EmailStatus.query.all()
+    return render_template('dashboard.html', email_statuses=email_statuses)
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    file = request.files['file']
-    file.save('uploaded_data.csv')
-    return jsonify({"message": "File uploaded successfully!"})
-
-@app.route('/send-email', methods=['POST'])
+@app.route('/send_email', methods=['POST'])
 def send_email_route():
-    data = request.json
-    result = send_email(data)
-    return jsonify({"message": "Emails sent!", "result": result})
+    email_data = request.form.get('email_data')
+    # Add logic to handle email sending or scheduling
+    schedule_email.apply_async(args=[email_data], countdown=60)  # Schedule after 1 minute
+    return redirect(url_for('dashboard'))
 
-@app.route('/schedule-email', methods=['POST'])
-def schedule_email_route():
-    data = request.json
-    schedule_emails(data)
-    return jsonify({"message": "Emails scheduled!"})
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
