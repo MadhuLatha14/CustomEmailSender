@@ -1,34 +1,54 @@
-import sendgrid
-from sendgrid.helpers.mail import Mail
-from config import Config
-import openai
+import os
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail, SendAt , PlainTextContent, HtmlContent
+import markdown
 
-# Initialize OpenAI API Key
-openai.api_key = Config.OPENAI_API_KEY
-
-def generate_email_content(prompt, data):
-    # Replace placeholders in the prompt with actual data
-    filled_prompt = prompt.format(**data)
-    
-    response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=filled_prompt,
-        max_tokens=150
-    )
-    
-    return response.choices[0].text.strip()
+from pymongo import MongoClient
+from datetime import datetime
 
 
-def send_email(to_email, subject, content):
-    sg = sendgrid.SendGridAPIClient(api_key=Config.SENDGRID_API_KEY)
-    message = Mail(
-        from_email='your-email@example.com',
-        to_emails=to_email,
-        subject=subject,
-        html_content=content)
-    try:
-        response = sg.send(message)
-        return response.status_code
-    except Exception as e:
-        print(e.message)
-        return None
+
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+FROM_EMAIL = os.getenv("FROM_EMAIL")
+
+class EmailSender:
+
+    def __init__(self):
+        # MongoDB connection URI
+        self.client = MongoClient('mongodb://localhost:27017/')  # for local MongoDB
+        self.db = self.client['email_tracking']  # Database name
+        self.emails_collection = self.db['emails_sent']  # Collection name
+
+    def send_email(self, to_email, subject, message_content, personalisations_dict = None):
+        # html_content=f'<script type="module" src="https://md-block.verou.me/md-block.js"></script>\
+        # <md-block>\
+        # <p>If you cannot see this email, please check your email settings or view it online.</p>\
+        #                 <p>{message_content}</p> </md-block>'
+        html_content = markdown.markdown(message_content) 
+        message = Mail(
+            from_email=FROM_EMAIL,
+            to_emails= to_email,
+            subject= subject,
+            )
+        message.add_content(HtmlContent(html_content))
+        message.add_content(PlainTextContent(message_content))
+        
+        send_at = personalisations_dict["send_at"]
+        message.send_at = SendAt(send_at)
+        try:
+            sg = SendGridAPIClient(SENDGRID_API_KEY)
+            response = sg.send(message)
+            print(response.status_code)
+            print(response.body)
+            print(response.headers)
+        except Exception as e:
+            print(e)
+
+if __name__=="__main__":
+    es = EmailSender()
+    es.send_email(TO_EMAIL, "Hello, this is a test email", {"send_at" : None})
