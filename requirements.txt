@@ -1,4 +1,7 @@
-Flask
-schedule
-sqlite3
-smtplib
+Flask (or Django for the backend)
+Google API Python client (for Google Sheets integration)
+requests
+Celery (for scheduling)
+SQLAlchemy or another ORM (for database)
+SendGrid/Mailgun API client (for ESP integration)
+openai
