@@ -1,0 +1,4 @@
+Flask
+schedule
+sqlite3
+smtplib
